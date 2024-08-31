@@ -3,7 +3,7 @@
  * GRAPHDECO research group, https://team.inria.fr/graphdeco
  * All rights reserved.
  *
- * This software is free for non-commercial, research and evaluation use 
+ * This software is free for non-commercial, research and evaluation use
  * under the terms of the LICENSE.md file.
  *
  * For inquiries contact  george.drettakis@inria.fr
@@ -19,8 +19,8 @@ namespace cg = cooperative_groups;
 // coefficients of each Gaussian to a simple RGB color.
 __device__ glm::vec3 computeColorFromSH(int idx, int deg, int max_coeffs, const glm::vec3* means, glm::vec3 campos, const float* shs, bool* clamped)
 {
-	// The implementation is loosely based on code for 
-	// "Differentiable Point-Based Radiance Fields for 
+	// The implementation is loosely based on code for
+	// "Differentiable Point-Based Radiance Fields for
 	// Efficient View Synthesis" by Zhang et al. (2022)
 	glm::vec3 pos = means[idx];
 	glm::vec3 dir = pos - campos;
@@ -253,7 +253,7 @@ __global__ void preprocessCUDA(int P, int D, int M,
 }
 
 // Main rasterization method. Collaboratively works on one tile per
-// block, each thread treats one pixel. Alternates between fetching 
+// block, each thread treats one pixel. Alternates between fetching
 // and rasterizing data.
 template <uint32_t CHANNELS>
 __global__ void __launch_bounds__(BLOCK_X * BLOCK_Y)
@@ -271,7 +271,10 @@ renderCUDA(
 	uint32_t* __restrict__ n_contrib,
 	const float* __restrict__ bg_color,
 	float* __restrict__ out_color,
-	float* __restrict__ out_others)
+	float* __restrict__ out_others,
+	float* __restrict__ transmittance,
+	int* __restrict__ num_covered_pixels,
+	bool record_transmittance)
 {
 	// Identify current tile and associated min/max pixel range.
 	auto block = cg::this_thread_block();
@@ -342,7 +345,7 @@ renderCUDA(
 		}
 		block.sync();
 
-		// Iterate over current batch
+		// Iterate over current batch 
 		for (int j = 0; !done && j < min(BLOCK_SIZE, toDo); j++)
 		{
 			// Keep track of current position in range
@@ -351,17 +354,17 @@ renderCUDA(
 			// Fisrt compute two homogeneous planes, See Eq. (8)
 			const float2 xy = collected_xy[j];
 			const float3 Tu = collected_Tu[j];
-			const float3 Tv = collected_Tv[j];
+			const float3 Tv = collected_Tv[j];  
 			const float3 Tw = collected_Tw[j];
 			float3 k = pix.x * Tw - Tu;
 			float3 l = pix.y * Tw - Tv;
 			float3 p = cross(k, l);
 			if (p.z == 0.0) continue;
 			float2 s = {p.x / p.z, p.y / p.z};
-			float rho3d = (s.x * s.x + s.y * s.y); 
-			float2 d = {xy.x - pixf.x, xy.y - pixf.y};
-			float rho2d = FilterInvSquare * (d.x * d.x + d.y * d.y); 
-
+			float rho3d = (s.x * s.x + s.y * s.y);
+			float2 d = {xy.x - pixf.x, xy.y - pixf.y};  
+			float rho2d = FilterInvSquare * (d.x * d.x + d.y * d.y);
+			
 			// compute intersection and depth
 			float rho = min(rho3d, rho2d);
 			float depth = (rho3d <= rho2d) ? (s.x * Tw.x + s.y * Tw.y) + Tw.z : Tw.z; 
@@ -371,18 +374,22 @@ renderCUDA(
 			float opa = nor_o.w;
 
 			float power = -0.5f * rho;
-			if (power > 0.0f)
+			if (power > 0.0f) 
 				continue;
 
-			// Eq. (2) from 3D Gaussian splatting paper.
+			// Eq. (2) from 3D Gaussian splatting paper. 
 			// Obtain alpha by multiplying with Gaussian opacity
 			// and its exponential falloff from mean.
 			// Avoid numerical instabilities (see paper appendix). 
 			float alpha = min(0.99f, opa * exp(power));
+			if (record_transmittance){
+				atomicAdd(&transmittance[collected_id[j]], T * alpha); 
+				atomicAdd(&num_covered_pixels[collected_id[j]], 1);
+			}
 			if (alpha < 1.0f / 255.0f)
 				continue;
 			float test_T = T * (1 - alpha);
-			if (test_T < 0.0001f)
+			if (test_T < 0.0001f) 
 			{
 				done = true;
 				continue;
@@ -401,7 +408,7 @@ renderCUDA(
 
 			if (T > 0.5) {
 				median_depth = depth;
-				// median_weight = w;
+				// median_weight = w;  
 				median_contributor = contributor;
 			}
 			// Render normal map
@@ -409,18 +416,18 @@ renderCUDA(
 #endif
 
 			// Eq. (3) from 3D Gaussian splatting paper.
-			for (int ch = 0; ch < CHANNELS; ch++)
+			for (int ch = 0; ch < CHANNELS; ch++) 
 				C[ch] += features[collected_id[j] * CHANNELS + ch] * w;
 			T = test_T;
 
-			// Keep track of last range entry to update this
+			// Keep track of last range entry to update this 
 			// pixel.
 			last_contributor = contributor;
 		}
 	}
 
 	// All threads that treat valid pixel write out their final
-	// rendering data to the frame and auxiliary buffers.
+	// rendering data to the frame and auxiliary buffers.  
 	if (inside)
 	{
 		final_T[pix_id] = T;
@@ -428,18 +435,18 @@ renderCUDA(
 		for (int ch = 0; ch < CHANNELS; ch++)
 			out_color[ch * H * W + pix_id] = C[ch] + T * bg_color[ch];
 
-#if RENDER_AXUTILITY
+#if RENDER_AXUTILITY  
 		n_contrib[pix_id + H * W] = median_contributor;
 		final_T[pix_id + H * W] = M1;
 		final_T[pix_id + 2 * H * W] = M2;
 		out_others[pix_id + DEPTH_OFFSET * H * W] = D;
 		out_others[pix_id + ALPHA_OFFSET * H * W] = 1 - T;
-		for (int ch=0; ch<3; ch++) out_others[pix_id + (NORMAL_OFFSET+ch) * H * W] = N[ch];
+		for (int ch=0; ch<3; ch++) out_others[pix_id + (NORMAL_OFFSET+ch) * H * W] = N[ch];  
 		out_others[pix_id + MIDDEPTH_OFFSET * H * W] = median_depth;
 		out_others[pix_id + DISTORTION_OFFSET * H * W] = distortion;
 		// out_others[pix_id + MEDIAN_WEIGHT_OFFSET * H * W] = median_weight;
 #endif
-	}
+	}  
 }
 
 void FORWARD::render(
@@ -457,7 +464,10 @@ void FORWARD::render(
 	uint32_t* n_contrib,
 	const float* bg_color,
 	float* out_color,
-	float* out_others)
+	float* out_others,
+	float* transmittance,
+	int* num_covered_pixels,
+	bool record_transmittance)
 {
 	renderCUDA<NUM_CHANNELS> << <grid, block >> > (
 		ranges,
@@ -473,7 +483,10 @@ void FORWARD::render(
 		n_contrib,
 		bg_color,
 		out_color,
-		out_others);
+		out_others,
+		transmittance,
+		num_covered_pixels,
+		record_transmittance);
 }
 
 void FORWARD::preprocess(int P, int D, int M,
