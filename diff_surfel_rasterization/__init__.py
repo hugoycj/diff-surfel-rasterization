@@ -172,8 +172,9 @@ class GaussianRasterizationSettings(NamedTuple):
     sh_degree : int
     campos : torch.Tensor
     prefiltered : bool
-    record_transmittance: bool
-    debug : bool
+    record_transmittance: bool = False
+    debug : bool = False
+
 
 class GaussianRasterizer(nn.Module):
     def __init__(self, raster_settings):
