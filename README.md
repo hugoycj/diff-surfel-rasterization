@@ -4,8 +4,6 @@ This project extends the [surfel-rasterization engine](https://github.com/hbb1/d
 
 This relocation strategy enhances handling Gaussian splat parameters, focusing on maintaining sample state probabilities during heuristic moves like 'move', 'split', 'clone', 'prune', and 'add'.
 
-***Except for the relocation kernel, the engine is exactly same as the original.***
-
 ## Installation 
 To use the engine, follow these steps:
 
