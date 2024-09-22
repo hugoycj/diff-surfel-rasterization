@@ -1,17 +1,15 @@
-# Differential Surfel Rasterization MCMC
+# Differential Surfel Rasterization
 
-This project extends the [surfel-rasterization engine](https://github.com/hbb1/diff-surfel-rasterization) of 2D Gaussian Splatting, by integrating a relocation kernel based on Markov Chain Monte Carlo ([3DGS-MCMC](https://ubc-vision.github.io/3dgs-mcmc/)) principles. 
+This project extends the [surfel-rasterization engine](https://github.com/hbb1/diff-surfel-rasterization) of 2D Gaussian Splatting, by integrating a relocation kernel based on [3DGS-MCMC](https://ubc-vision.github.io/3dgs-mcmc/), absolute view-space gradient based on [AbsGS](https://github.com/TY424/AbsGS), and gaussian trimming based on [TrimGS](https://github.com/YuxueYang1204/TrimGS)
 
 This relocation strategy enhances handling Gaussian splat parameters, focusing on maintaining sample state probabilities during heuristic moves like 'move', 'split', 'clone', 'prune', and 'add'.
-
-***Except for the relocation kernel, the engine is exactly same as the original.***
 
 ## Installation 
 To use the engine, follow these steps:
 
 - Clone the repository:
 ```bash
-git clone https://github.com/hwanhuh/diff-surfel-rasterization.git
+git clone https://github.com/hugoycj/diff-surfel-rasterization.git
 cd diff-surfel-rasterization
 ```
 - Install the package
