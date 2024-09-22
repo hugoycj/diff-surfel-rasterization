@@ -90,7 +90,7 @@ class _RasterizeGaussians(torch.autograd.Function):
                 print("\nAn error occured in forward. Please forward snapshot_fw.dump for debugging.")
                 raise ex
         else:
-            num_rendered, color, depth, radii, geomBuffer, binningBuffer, imgBuffer, transmittance, num_covered_pixels = _C.rasterize_gaussians(*args)
+            num_rendered, color, depth, radii, geomBuffer, binningBuffer, imgBuffer, transmittance_sum, num_covered_pixels = _C.rasterize_gaussians(*args)
 
         
 
@@ -99,12 +99,13 @@ class _RasterizeGaussians(torch.autograd.Function):
         ctx.num_rendered = num_rendered
         ctx.save_for_backward(colors_precomp, means3D, scales, rotations, cov3Ds_precomp, radii, sh, geomBuffer, binningBuffer, imgBuffer)
         if raster_settings.record_transmittance:
-            return color, radii, depth, transmittance, num_covered_pixels
+            transmittance_avg = transmittance_sum / (num_covered_pixels + 1e-6)
+            return color, radii, depth, transmittance_avg, num_covered_pixels
         else:
-            return color, radii, depth, None, None
+            return color, radii, depth
 
     @staticmethod
-    def backward(ctx, grad_out_color, grad_radii, grad_depth, grad_transmittance, gard_num_covered_pixels):
+    def backward(ctx, grad_out_color, grad_radii, grad_depth, grad_transmittance=None, gard_num_covered_pixels=None):
 
         # Restore necessary values from context
         num_rendered = ctx.num_rendered
