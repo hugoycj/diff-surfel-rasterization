@@ -92,22 +92,23 @@ class _RasterizeGaussians(torch.autograd.Function):
         else:
             num_rendered, color, depth, radii, geomBuffer, binningBuffer, imgBuffer, transmittance, num_covered_pixels = _C.rasterize_gaussians(*args)
 
-        if raster_settings.record_transmittance:
-            return transmittance, num_covered_pixels, radii
+        
 
         # Keep relevant tensors for backward
         ctx.raster_settings = raster_settings
         ctx.num_rendered = num_rendered
         ctx.save_for_backward(colors_precomp, means3D, scales, rotations, cov3Ds_precomp, radii, sh, geomBuffer, binningBuffer, imgBuffer)
-        return color, radii, depth
+        if raster_settings.record_transmittance:
+            return color, radii, depth, transmittance, num_covered_pixels
+        else:
+            return color, radii, depth, None, None
 
     @staticmethod
-    def backward(ctx, grad_out_color, grad_radii, grad_depth):
+    def backward(ctx, grad_out_color, grad_radii, grad_depth, grad_transmittance, gard_num_covered_pixels):
 
         # Restore necessary values from context
         num_rendered = ctx.num_rendered
         raster_settings = ctx.raster_settings
-        assert not raster_settings.record_transmittance, 'should not execute backward for calculate transmittance'
         colors_precomp, means3D, scales, rotations, cov3Ds_precomp, radii, sh, geomBuffer, binningBuffer, imgBuffer = ctx.saved_tensors
 
         # Restructure args as C++ method expects them
