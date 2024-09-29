@@ -641,8 +641,8 @@ __global__ void preprocessCUDA(
 	
 	// hack the gradient here for densitification
 	float depth = transMats[idx * 9 + 8];
-	dL_dmean2Ds[idx].x = dL_dtransMats[idx * 9 + 2] * depth * 0.5 * float(W); // to ndc 
-	dL_dmean2Ds[idx].y = dL_dtransMats[idx * 9 + 5] * depth * 0.5 * float(H); // to ndc
+	dL_dmean2Ds[idx].x = dL_dtransMats[idx * 9 + 2] * depth * float(W); // to ndc 
+	dL_dmean2Ds[idx].y = dL_dtransMats[idx * 9 + 5] * depth * float(H); // to ndc
 }
 
 
