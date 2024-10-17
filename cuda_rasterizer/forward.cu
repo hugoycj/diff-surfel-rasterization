@@ -318,8 +318,9 @@ renderCUDA(
 	float M2 = {0};
 	float distortion = {0};
 	float median_depth = {0};
-	// float median_weight = {0};
+	float median_weight = {0};
 	float median_contributor = {-1};
+	float median_id = {-1};
 
 #endif
 
@@ -408,7 +409,8 @@ renderCUDA(
 
 			if (T > 0.5) {
 				median_depth = depth;
-				// median_weight = w;  
+				median_weight = w;
+				median_id = collected_id[j];
 				median_contributor = contributor;
 			}
 			// Render normal map
@@ -444,7 +446,8 @@ renderCUDA(
 		for (int ch=0; ch<3; ch++) out_others[pix_id + (NORMAL_OFFSET+ch) * H * W] = N[ch];  
 		out_others[pix_id + MIDDEPTH_OFFSET * H * W] = median_depth;
 		out_others[pix_id + DISTORTION_OFFSET * H * W] = distortion;
-		// out_others[pix_id + MEDIAN_WEIGHT_OFFSET * H * W] = median_weight;
+		out_others[pix_id + MEDIAN_WEIGHT_OFFSET * H * W] = median_weight;
+		out_others[pix_id + MEDIAN_ID_OFFSET * H * W] = median_id;
 #endif
 	}  
 }
